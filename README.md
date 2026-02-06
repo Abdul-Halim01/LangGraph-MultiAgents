@@ -5,12 +5,14 @@ A comprehensive implementation of intelligent multi-agent systems using LangGrap
 ![LangGraph](https://img.shields.io/badge/LangGraph-Framework-blue)
 ![Python](https://img.shields.io/badge/Python-3.10+-green)
 ![Gemini](https://img.shields.io/badge/Google-Gemini_AI-orange)
+![UV](https://img.shields.io/badge/UV-Package_Manager-purple)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
 
 ## 📋 Table of Contents
 
+- [Quick Start](#quick-start)
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Project Structure](#project-structure)
@@ -22,12 +24,46 @@ A comprehensive implementation of intelligent multi-agent systems using LangGrap
   - [5. ReAct Agent (ReAct_Agent.py)](#5-react-agent-react_agentpy)
   - [6. Supervisor Multi-Agent System (Supervisor.ipynb)](#6-supervisor-multi-agent-system-supervisoripynb)
 - [Installation](#installation)
+- [UV Package Manager](#uv-package-manager)
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Technical Details](#technical-details)
 - [Dependencies](#dependencies)
+- [Troubleshooting](#troubleshooting)
+- [Best Practices](#best-practices)
 - [Contributing](#contributing)
 - [License](#license)
+
+---
+
+## ⚡ Quick Start
+
+Get up and running in 5 minutes:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Abdul-Halim01/LangGraph-MultiAgents.git
+cd LangGraph-MultiAgents
+
+# 2. Install UV (if needed)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # macOS/Linux
+# OR: pip install uv
+
+# 3. Create virtual environment
+uv venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 4. Install dependencies
+uv pip install -e .
+
+# 5. Set up environment variables
+echo "GOOGLE_API_KEY=your_api_key_here" > .env
+
+# 6. Run an agent
+python agent.py
+```
+
+**Get your Gemini API Key**: [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 ---
 
@@ -74,6 +110,38 @@ The project implements several agent patterns:
 3. **State Management** with LangGraph StateGraph
 4. **Tool Integration** with conditional routing
 5. **Multi-Agent Orchestration** with supervisor pattern
+6. **Quality Validation** with validator agent
+
+### Supervisor System Architecture:
+
+```
+                         __start__
+                             │
+                             ▼
+                      ┌──────────────┐
+                      │  Supervisor  │◄──┐
+                      └──────┬───────┘   │
+                             │           │
+           ┌─────────────────┼─────────────────┐
+           │                 │                 │
+           ▼                 ▼                 ▼
+    ┌──────────┐      ┌──────────┐     ┌──────────┐
+    │  Coder   │      │ Enhancer │     │Researcher│
+    └────┬─────┘      └────┬─────┘     └────┬─────┘
+         │                 │                 │
+         └─────────────────┼─────────────────┘
+                           ▼
+                    ┌──────────────┐
+                    │  Validator   │
+                    └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │   __end__    │
+                    └──────────────┘
+                    
+Dotted lines (···) = Conditional routing
+Solid lines (───) = Direct edges
+```
 
 ---
 
@@ -557,9 +625,14 @@ because it provides accurate arithmetic computation."
 
 **Architecture Overview**:
 
-The supervisor system implements a hierarchical multi-agent architecture where a supervisor agent routes queries to specialized workers:
+The supervisor system implements a hierarchical multi-agent architecture where a supervisor agent routes queries to specialized workers, with a validator agent ensuring quality:
 
 ```
+                    ┌─────────────┐
+                    │   __start__ │
+                    └──────┬──────┘
+                           │
+                           ▼
                     ┌─────────────┐
                     │ Supervisor  │
                     │   Agent     │
@@ -567,42 +640,148 @@ The supervisor system implements a hierarchical multi-agent architecture where a
                            │
           ┌────────────────┼────────────────┐
           ▼                ▼                ▼
-    ┌─────────┐      ┌─────────┐     ┌─────────┐
-    │ Researcher│     │  Coder  │     │  Web    │
-    │  Agent   │     │  Agent  │     │ Search  │
-    └─────────┘      └─────────┘     └─────────┘
+    ┌──────────┐    ┌───────────┐    ┌────────────┐
+    │  Coder   │    │ Enhancer  │    │ Researcher │
+    │  Agent   │    │  Agent    │    │   Agent    │
+    └──────────┘    └───────────┘    └────────────┘
+          │                │                 │
+          └────────────────┼─────────────────┘
+                           ▼
+                    ┌─────────────┐
+                    │ Validator   │
+                    │   Agent     │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   __end__   │
+                    └─────────────┘
 ```
 
-**How it Works** (Based on notebook structure):
+**How it Works** (Based on notebook implementation):
 
 1. **Agent Definition**:
-   - Each agent is defined with specific capabilities
-   - Agents have their own system prompts and tools
-   - Agents report back to the supervisor
+   - Each worker agent is defined with specific capabilities and system prompts
+   - Agents are registered in the supervisor's routing logic
+   - Each agent has access to specialized tools
+   - Agents communicate through shared state
 
 2. **Supervisor Logic**:
-   - Analyzes incoming query
-   - Determines which agent is best suited
-   - Routes to appropriate agent
-   - Collects results
-   - May route to additional agents if needed
+   ```python
+   def supervisor(state: SupervisorState):
+       # Analyzes the current state and messages
+       # Determines which agent should handle the task
+       # Returns routing decision
+       return {"next": "coder" | "enhancer" | "researcher" | "validator"}
+   ```
+   - Uses LLM to intelligently route queries
+   - Can route to multiple agents in sequence
+   - Tracks conversation state and history
+
+3. **Agent State Management**:
+   ```python
+   class SupervisorState(TypedDict):
+       messages: Annotated[Sequence[BaseMessage], add_messages]
+       next: str  # Which agent to route to
+   ```
+
+4. **Worker Agent Pattern**:
+   Each worker follows this structure:
+   ```python
+   def worker_agent(state: SupervisorState):
+       # Process the task based on agent specialty
+       # Use agent-specific tools if needed
+       # Return results as messages
+       return {"messages": [response]}
+   ```
+
+5. **Validator Integration**:
+   ```python
+   def validator(state: SupervisorState):
+       # Reviews outputs from worker agents
+       # Checks quality, correctness, completeness
+       # Can reject and send back for improvement
+       # Final approval before END
+       return {"messages": [validation_result]}
+   ```
+
+6. **Graph Construction**:
+   ```python
+   graph = StateGraph(SupervisorState)
+   
+   # Add all agents as nodes
+   graph.add_node("supervisor", supervisor)
+   graph.add_node("coder", coder_agent)
+   graph.add_node("enhancer", enhancer_agent)
+   graph.add_node("researcher", researcher_agent)
+   graph.add_node("validator", validator)
+   
+   # Entry point
+   graph.set_entry_point("supervisor")
+   
+   # Conditional routing from supervisor
+   graph.add_conditional_edges(
+       "supervisor",
+       lambda x: x["next"],
+       {
+           "coder": "coder",
+           "enhancer": "enhancer", 
+           "researcher": "researcher",
+           "FINISH": "validator"
+       }
+   )
+   
+   # All workers route to validator
+   graph.add_edge("coder", "validator")
+   graph.add_edge("enhancer", "validator")
+   graph.add_edge("researcher", "validator")
+   
+   # Validator can loop back or end
+   graph.add_conditional_edges(
+       "validator",
+       should_continue,
+       {
+           "continue": "supervisor",
+           "end": END
+       }
+   )
+   ```
+
+7. **Workflow Orchestration**:
+   - Supervisor receives user query
+   - Analyzes query intent and requirements
+   - Routes to appropriate specialist(s)
+   - Worker(s) complete their tasks
+   - Validator ensures quality
+   - If approved → Return to user
+   - If rejected → Loop back for improvements
 
 3. **Specialized Agents**:
 
-   **Researcher Agent**:
-   - Conducts in-depth research
-   - Synthesizes information from multiple sources
-   - Provides comprehensive answers
-
    **Coder Agent**:
    - Writes and debugs code
+   - Implements solutions in various programming languages
    - Explains code functionality
-   - Provides code solutions
+   - Provides optimized code solutions
 
-   **Web Search Agent**:
-   - Performs web searches
-   - Retrieves current information
-   - Fact-checking capabilities
+   **Enhancer Agent**:
+   - Improves and refines content
+   - Optimizes code or text quality
+   - Adds missing details and context
+   - Polishes outputs from other agents
+
+   **Researcher Agent**:
+   - Conducts in-depth research
+   - Gathers information from multiple sources
+   - Synthesizes comprehensive answers
+   - Provides fact-based insights
+
+   **Validator Agent**:
+   - Quality assurance for all outputs
+   - Verifies correctness and completeness
+   - Checks for errors or inconsistencies
+   - Ensures outputs meet requirements
+   - Final gatekeeper before returning to user
 
 4. **State Management**:
    ```python
@@ -618,11 +797,20 @@ The supervisor system implements a hierarchical multi-agent architecture where a
 
 6. **Workflow**:
    ```
-   User Query → Supervisor → [Route Decision] → Worker Agent → Result
-                    ↑                                            │
-                    └────────────────────────────────────────────┘
-                           (Loop if more agents needed)
+   User Query → Supervisor → [Route Decision] → Worker Agent(s) 
+                                                      ↓
+                                                  Validator
+                                                      ↓
+                                                   Result
    ```
+
+   **Complete Flow**:
+   1. User submits query
+   2. Supervisor analyzes and routes to appropriate agent(s)
+   3. Worker agent(s) process the task
+   4. Validator checks the output quality
+   5. If valid → Return to user
+   6. If invalid → Route back to worker or supervisor for improvement
 
 **Key Notebook Components**:
 - Agent initialization and configuration
@@ -631,18 +819,55 @@ The supervisor system implements a hierarchical multi-agent architecture where a
 - Multi-agent communication protocol
 - Result aggregation and synthesis
 
+**Detailed Agent Capabilities**:
+
+| Agent | Primary Role | Key Functions | Example Tasks |
+|-------|-------------|---------------|---------------|
+| **Supervisor** | Orchestrator | Query analysis, routing, coordination | Determines workflow path |
+| **Coder** | Software Development | Write code, debug, optimize, explain | "Create a Python sorting algorithm" |
+| **Enhancer** | Quality Improvement | Refine outputs, add details, polish | "Improve this code's readability" |
+| **Researcher** | Information Gathering | Research topics, synthesize data | "Find latest ML trends" |
+| **Validator** | Quality Assurance | Check correctness, verify completeness | Ensures all outputs meet standards |
+
+**Agent Interaction Patterns**:
+
+1. **Sequential Processing**:
+   ```
+   Researcher → Coder → Enhancer → Validator
+   ```
+   Example: "Research topic, write code, optimize it"
+
+2. **Single Agent + Validation**:
+   ```
+   Coder → Validator
+   ```
+   Example: "Write a simple function"
+
+3. **Iterative Improvement**:
+   ```
+   Coder → Validator → (fails) → Enhancer → Validator
+   ```
+   Example: Quality loop until standards met
+
+4. **Parallel-to-Sequential** (if supported):
+   ```
+   Researcher + Coder → Enhancer → Validator
+   ```
+   Example: Combine research and code, then polish
+
 **Use Cases**:
-- Complex queries requiring multiple perspectives
-- Research + coding tasks
-- Fact-checking with web search
-- Multi-step problem solving
-- Comprehensive analysis requiring diverse skills
+- Complex queries requiring multiple specialized skills
+- Research + coding + optimization workflows
+- Quality-assured content generation
+- Multi-step problem solving with validation
+- Comprehensive analysis requiring diverse agents
+- Production-ready outputs with automatic QA
 
 **Example Flow**:
 ```
-User: "Research the latest AI trends and write Python code to analyze them"
+User: "Research the latest AI trends and write optimized Python code to analyze them"
 
-Supervisor: Analyzes query → "This needs Researcher AND Coder"
+Supervisor: Analyzes query → "This needs Researcher, Coder, and Enhancer"
 ↓
 Researcher: Finds information about AI trends
 ↓
@@ -650,7 +875,20 @@ Supervisor: Receives research → Routes to Coder
 ↓
 Coder: Writes analysis code based on research
 ↓
-Supervisor: Aggregates results → Returns to user
+Supervisor: Routes to Enhancer
+↓
+Enhancer: Optimizes code, adds documentation and best practices
+↓
+Validator: Checks if research is complete, code works, and quality is high
+↓
+Validator: Approves → Returns final result to user
+
+Alternative Flow (if validation fails):
+Validator: Finds issues → Routes back to Supervisor
+↓
+Supervisor: Re-routes to appropriate agent for fixes
+↓
+[Process repeats until validation passes]
 ```
 
 **Advanced Features**:
@@ -667,7 +905,8 @@ Supervisor: Aggregates results → Returns to user
 
 - Python 3.10 or higher
 - Google Gemini API key
-- UV package manager (recommended) or pip
+- **UV package manager** (highly recommended - fast, modern Python package manager)
+- Git
 
 ### Step 1: Clone the Repository
 
@@ -676,31 +915,66 @@ git clone https://github.com/Abdul-Halim01/LangGraph-MultiAgents.git
 cd LangGraph-MultiAgents
 ```
 
-### Step 2: Set Up Virtual Environment
+### Step 2: Install UV (if not already installed)
+
+**On macOS and Linux:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**On Windows:**
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+**Or using pip:**
+```bash
+pip install uv
+```
+
+**Verify installation:**
+```bash
+uv --version
+```
+
+### Step 3: Set Up Virtual Environment with UV
 
 ```bash
-# Using UV (recommended)
+# UV automatically creates and manages virtual environments
 uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Or using Python venv
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Activate the virtual environment
+# On macOS/Linux:
+source .venv/bin/activate
+
+# On Windows:
+.venv\Scripts\activate
 ```
 
-### Step 3: Install Dependencies
+### Step 4: Install Dependencies with UV
+
+UV makes dependency installation fast and reliable:
 
 ```bash
-# Using UV
-uv pip install -r pyproject.toml
+# Install all dependencies from pyproject.toml
+uv pip install -e .
 
-# Or using pip
-pip install langgraph langchain langchain-core langchain-google-genai
-pip install langchain-community langchain-chroma langchain-huggingface
-pip install python-dotenv pandas
+# Or install specific packages
+uv pip install langgraph langchain langchain-core langchain-google-genai
+uv pip install langchain-community langchain-chroma langchain-huggingface
+uv pip install python-dotenv pandas jupyter
+
+# UV also supports syncing dependencies
+uv pip sync
 ```
 
-### Step 4: Configure Environment Variables
+**Why UV?**
+- ⚡ **10-100x faster** than pip
+- 🔒 **Reliable**: Generates lock files for reproducible installs
+- 🎯 **Smart**: Better dependency resolution
+- 💾 **Efficient**: Global cache reduces disk usage
+
+### Step 5: Configure Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -712,6 +986,78 @@ GOOGLE_API_KEY=your_gemini_api_key_here
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create a new API key
 3. Copy and paste into `.env`
+
+---
+
+## 🚀 UV Package Manager
+
+This project uses **UV** as the primary package manager for superior performance and reliability.
+
+### What is UV?
+
+UV is a modern, extremely fast Python package installer and resolver written in Rust. It's designed to be a drop-in replacement for pip with significantly better performance.
+
+### Benefits of UV
+
+| Feature | UV | pip |
+|---------|-----|-----|
+| **Speed** | ⚡ 10-100x faster | Standard speed |
+| **Dependency Resolution** | 🎯 Advanced resolver | Basic resolver |
+| **Lock Files** | ✅ Built-in (uv.lock) | ❌ Requires pip-tools |
+| **Caching** | 💾 Global cache | Limited caching |
+| **Reproducibility** | 🔒 Guaranteed | Variable |
+
+### UV Commands Quick Reference
+
+```bash
+# Create virtual environment
+uv venv
+
+# Install from pyproject.toml
+uv pip install -e .
+
+# Install specific package
+uv pip install package-name
+
+# Install with extras
+uv pip install "package-name[extra]"
+
+# Sync dependencies (use lock file)
+uv pip sync
+
+# List installed packages
+uv pip list
+
+# Freeze dependencies
+uv pip freeze
+
+# Uninstall package
+uv pip uninstall package-name
+```
+
+### UV Lock File
+
+The `uv.lock` file ensures everyone on your team has the exact same dependencies:
+
+```bash
+# Generate/update lock file
+uv pip compile pyproject.toml -o requirements.txt
+
+# Install from lock file
+uv pip sync
+```
+
+### Migration from pip
+
+If you're coming from pip, UV commands are nearly identical:
+
+```bash
+# pip → uv
+pip install package    →  uv pip install package
+pip uninstall package  →  uv pip uninstall package
+pip list              →  uv pip list
+pip freeze            →  uv pip freeze
+```
 
 ---
 
@@ -817,10 +1163,34 @@ inputs = {"messages": [("user", "Add 34 + 21 + 7")]}
 ```
 
 #### 6. Supervisor Multi-Agent System
+
+**Installation:**
 ```bash
-jupyter notebook Supervisor.ipynb
+# Install Jupyter with UV
+uv pip install jupyter ipykernel
+
+# Register the virtual environment as a Jupyter kernel
+python -m ipykernel install --user --name=langgraph-multiagents
 ```
+
+**Run:**
+```bash
+# Launch Jupyter
+jupyter notebook Supervisor.ipynb
+
+# Or use Jupyter Lab
+uv pip install jupyterlab
+jupyter lab Supervisor.ipynb
+```
+
 Then run all cells to initialize and interact with the multi-agent system.
+
+**Architecture:**
+- **Supervisor**: Routes tasks to specialized agents
+- **Coder**: Handles programming tasks
+- **Enhancer**: Improves and optimizes outputs
+- **Researcher**: Gathers and synthesizes information
+- **Validator**: Ensures output quality and correctness
 
 ---
 
@@ -934,7 +1304,7 @@ llm = ChatGoogleGenerativeAI(
 **Model Options**:
 - `gemini-2.5-flash`: Fast, efficient, good for most tasks
 - `gemini-2.5-flash-lite`: Lightweight version
-- `gemini-1.5-pro`: More capable, slower, higher cost
+- `gemini-2.5-pro`: More capable, slower, higher cost
 
 ### RAG Components
 
@@ -1008,15 +1378,26 @@ For enhanced functionality:
 - `chromadb`: Vector database
 - `sentence-transformers`: Embeddings
 
-### Installation
+### Installation with UV
 
 ```bash
-# Minimal installation
-pip install langgraph langchain langchain-google-genai python-dotenv
+# Quick install with UV (recommended)
+uv pip install langgraph langchain langchain-google-genai python-dotenv
 
-# Full installation
-pip install -r requirements.txt  # Or from pyproject.toml
+# Full installation with all features
+uv pip install -e .
 ```
+
+### Alternative Installation (pip)
+
+If you prefer traditional pip:
+
+```bash
+pip install langgraph langchain langchain-google-genai python-dotenv
+pip install langchain-community langchain-chroma langchain-huggingface pandas
+```
+
+**Note**: UV is significantly faster and more reliable for dependency management.
 
 ---
 
@@ -1132,38 +1513,80 @@ For RAG agents:
 
 ### Common Issues
 
-**1. Import Errors**
+**1. UV Not Found**
+```bash
+-bash: uv: command not found
+```
+**Solution**: Install UV
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Or via pip
+pip install uv
+```
+
+**2. UV Installation Fails**
+```bash
+error: externally-managed-environment
+```
+**Solution**: Use virtual environment
+```bash
+uv venv
+source .venv/bin/activate  # Activate first
+uv pip install package-name
+```
+
+**3. Import Errors**
 ```bash
 ModuleNotFoundError: No module named 'langgraph'
 ```
-**Solution**: Install dependencies
+**Solution**: Install dependencies with UV
 ```bash
-pip install langgraph langchain
+uv pip install langgraph langchain
+# Or install everything
+uv pip install -e .
 ```
 
-**2. API Key Issues**
+**4. Virtual Environment Not Activated**
 ```bash
-google.api_core.exceptions.Unauthenticated: API key not valid
-```
-**Solution**: Check `.env` file and API key validity
+# Check if venv is activated (should see (.venv) in prompt)
+which python  # Should point to .venv/bin/python
 
-**3. PDF Not Found (RAG Agent)**
-```bash
-FileNotFoundError: Stock_Market_Performance_2024.pdf
+# If not activated:
+source .venv/bin/activate  # macOS/Linux
+.venv\Scripts\activate     # Windows
 ```
-**Solution**: Ensure PDF is in the project directory
 
-**4. ChromaDB Permission Issues**
+**7. ChromaDB Permission Issues**
 ```bash
 PermissionError: Cannot write to ./chroma_db
 ```
-**Solution**: Check directory permissions or change persist_directory
+**Solution**: Check directory permissions
+```bash
+chmod 755 ./chroma_db
+# Or change persist_directory in RAG_Agent.py
+```
 
-**5. Memory Issues with Large PDFs**
+
+**8. Memory Issues with Large PDFs**
 **Solution**: 
-- Reduce chunk_size
-- Process PDFs in batches
-- Increase system memory
+```python
+# Reduce chunk_size in RAG_Agent.py
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,  # Reduced from 1000
+    chunk_overlap=100,
+)
+```
+
+**9. UV Cache Issues**
+```bash
+# Clear UV cache if experiencing issues
+uv cache clean
+```
 
 ---
 
@@ -1179,23 +1602,6 @@ PermissionError: Cannot write to ./chroma_db
 8. **Resource Cleanup**: Close connections and clean up resources
 
 ---
-
-## 🔮 Future Enhancements
-
-Potential improvements:
-- [ ] Add more specialized agents
-- [ ] Implement agent memory with long-term storage
-- [ ] Add async execution for parallel agent processing
-- [ ] Create web UI for agent interaction
-- [ ] Implement agent performance monitoring
-- [ ] Add support for multiple LLM providers
-- [ ] Create agent marketplace/registry
-- [ ] Implement human-in-the-loop workflows
-- [ ] Add multi-language support
-- [ ] Create comprehensive test suite
-
----
-
 ## 📚 Resources
 
 ### LangGraph Documentation
@@ -1252,7 +1658,7 @@ This project is licensed under the MIT License. See `LICENSE` file for details.
 - LangGraph community for inspiration
 - All contributors and users
 
----
+<!-- ---
 
 ## 📞 Support
 
@@ -1269,10 +1675,10 @@ For questions or issues:
 ![GitHub forks](https://img.shields.io/github/forks/Abdul-Halim01/LangGraph-MultiAgents)
 ![GitHub issues](https://img.shields.io/github/issues/Abdul-Halim01/LangGraph-MultiAgents)
 
----
+--- -->
 
 **Happy Building with LangGraph! 🚀**
 
 ---
 
-*Last Updated: February 2026*
+<!-- *Last Updated: February 2026* -->
