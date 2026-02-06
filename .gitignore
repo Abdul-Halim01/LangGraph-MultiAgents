@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.env
+.langgraph_api/
+chroma_db/
+*.pckl
+*.log
+logging.txt
+__pycache__/
+.ipynb_checkpoints/

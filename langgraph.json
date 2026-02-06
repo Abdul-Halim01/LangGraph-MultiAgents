@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "langgraph"
+  ],
+  "graphs": {
+    "agent": "./Drafter.py:app"
+  }
+}

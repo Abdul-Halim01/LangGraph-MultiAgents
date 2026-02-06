@@ -1,0 +1,27 @@
+[project]
+name = "cool-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "chromadb>=1.4.1",
+    "huggingface-hub>=0.36.0",
+    "ipykernel>=7.1.0",
+    "langchain>=1.2.7",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.1",
+    "langchain-core>=1.2.7",
+    "langchain-experimental>=0.4.1",
+    "langchain-google-genai>=4.2.0",
+    "langchain-huggingface>=1.2.0",
+    "langchain-openai>=1.1.7",
+    "langchain-text-splitters>=1.1.0",
+    "langgraph>=1.0.7",
+    "langgraph-api>=0.7.9",
+    "langgraph-cli>=0.4.12",
+    "pypdf>=6.6.2",
+    "python-dotenv>=1.2.1",
+    "sentence-transformers>=5.2.2",
+    "tavily-python>=0.7.21",
+]
